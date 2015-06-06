@@ -56,6 +56,26 @@ public class Main {
 	 */
 	private Component currentImage = null;
 
+	private JFrame progressBarFrame;
+	private JProgressBar progress;
+
+	public Main() {
+		SwingUtilities.invokeLater(new Runnable() {
+
+			@Override
+			public void run() {
+				progress = new JProgressBar();
+				progress.setStringPainted(true);
+				progress.setIndeterminate(false);
+
+				progressBarFrame = new JFrame("Loading Images");
+				progressBarFrame.getContentPane().add(progress);
+
+				progressBarFrame.pack();
+			}
+		});
+	}
+
 	public static void main(String[] args) {
 		try {
 			new Main().execute(1, false); //Change the scale here
@@ -74,7 +94,7 @@ public class Main {
 	private void execute(double scale, boolean generateASCII) throws IOException {
 		Process ruby = Runtime.getRuntime().exec("ruby test4ch.rb"); //Runs ruby script
 		//Runtime.getRuntime().exec("java -Xms64m -Xmx256m jdbc_prog"); //Increase heap size
-		
+
 		//Wait for script to finish polling 4chan.
 		try {
 			ruby.waitFor();
@@ -88,24 +108,19 @@ public class Main {
 			toPrint.add("Resize factor: " + scale);
 		}
 
-		final JProgressBar progress = new JProgressBar();
-		progress.setStringPainted(true);
-
 		//Creating progress bar
-		JFrame progressBarFrame = new JFrame("Loading Images");
-		JPanel p = new JPanel();
-		progressBarFrame.setContentPane(p);
-		p.add(progress);
-		progressBarFrame.pack();
-		progressBarFrame.setVisible(true);
-
-		SwingUtilities.invokeLater(new Runnable(){
+		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				progress.setIndeterminate(false);
+				progress.setValue(0);
+				progressBarFrame.repaint();
+				progress.repaint();
+				progress.revalidate();
+				progressBarFrame.revalidate();
+				progressBarFrame.setVisible(true);
 			}
-		});
 
+		});
 		int count = 0, total = 0;
 
 		/* Get total number of images*/
@@ -142,19 +157,29 @@ public class Main {
 				if (count > total) {
 					count = total;
 				}
-				
+
 				final int percent = count * 100 / total;
 				SwingUtilities.invokeLater(new Runnable() {
 					public void run() {
 						progress.setString(percent + "%");
 						progress.setValue(percent);
+
+						if (percent >= 100) {
+							SwingUtilities.invokeLater(new Runnable() {
+								@Override
+								public void run() {
+									progressBarFrame.setVisible(false);
+								}
+							});
+
+						}
 					}	
 				});
 
 			} catch (FileNotFoundException e2) {//Image 404s
 				System.err.println("Image " + line2 + " 404'd!");
 
-			} catch (IIOException e) {//Cannot connect to internet
+			} catch (IIOException e) {//Cannot connect to internet, other error
 				System.out.println("Skip");
 				count++;
 				//e.printStackTrace();
@@ -192,10 +217,8 @@ public class Main {
 	}
 
 	//Returns a bufferedImage from image, from some github page
-	private static BufferedImage toBufferedImage(Image img)
-	{
-		if (img instanceof BufferedImage)
-		{
+	private static BufferedImage toBufferedImage(Image img) {
+		if (img instanceof BufferedImage) {
 			return (BufferedImage) img;
 		}
 
